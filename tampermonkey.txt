@@ -1,0 +1,95 @@
+// ==UserScript==
+// @name         Visualization Websockets
+// @namespace    http://tampermonkey.net/
+// @version      0.1
+// @description  try to take over the world!
+// @author       You
+// @match        https://*/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    /*!
+    * Socket.IO v4.5.0
+    * (c) 2014-2022 Guillermo Rauch
+    * Released under the MIT License.
+    */
+    var wsConnected = false;
+    var ws;
+    var ws2Connected = false;
+    var ws2;
+    var intervalConnectWS;
+    intervalConnectWS = setInterval(()=>{
+        if(!ws || (!wsConnected && ws.readyState === WebSocket.CLOSED)){
+            ws = new WebSocket("ws://localhost:9001");
+            ws.addEventListener("open", () =>{
+                console.log("We are connected for sound");
+                wsConnected = true;
+            });
+            ws.addEventListener("close", () => {
+                wsConnected = false;
+            });
+        }
+        if(!ws2 || (!ws2Connected && ws2.readyState === WebSocket.CLOSED)){
+            ws2 = new WebSocket("ws://localhost:9002");
+            ws2.addEventListener("open", () =>{
+                console.log("We are connected for thumb");
+                ws2Connected = true;
+            });
+            ws2.addEventListener("close", () => {
+                ws2Connected = false;
+            });
+        }
+    }, 1000)
+    var intervalObj;
+    intervalObj = setInterval(()=>{
+        if(!videoFound){
+            init();
+        }else{
+            clearInterval(intervalObj);
+        }
+    }, 3000)
+    var videoFound = false;
+    function init(){
+        var video = document.getElementsByTagName('video')[0];
+        if(!video){console.log('no vdeo elem'); return;}
+        console.log('video elem exists');
+        videoFound = true;
+        var freqByteData = new Uint8Array(120);
+        var context;
+        var source;
+        var analyser;
+        var thumb;
+        context = new AudioContext();
+        source = context.createMediaElementSource(video);
+        analyser = context.createAnalyser();
+        source.connect(analyser);
+        analyser.connect(context.destination);
+        setInterval(()=>{
+            analyser.getByteFrequencyData(freqByteData);
+            if(wsConnected && ws.readyState === WebSocket.OPEN){
+                if(!video.paused){
+                    ws.send(freqByteData);
+                }
+            }
+        }, 1000/60)
+        setInterval(()=>{
+            canvas.width = (video.videoWidth)/2;
+            canvas.height = (video.videoHeight)/2;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            //convert to desired file format
+            thumb = canvas.toDataURL('image/jpeg');
+            if(ws2Connected && ws2.readyState === WebSocket.OPEN){
+                if(!video.paused){
+                    ws2.send(thumb);
+                }
+            }
+        }, 1000/36)
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+    }
+})();
+
+
